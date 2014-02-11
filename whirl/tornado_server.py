@@ -1,8 +1,8 @@
 import logging
 import random
 
-import tornado.web
 import tornado
+import tornado.web
 
 log = logging.getLogger('whirl.tornado')
 log.addHandler(logging.NullHandler())
