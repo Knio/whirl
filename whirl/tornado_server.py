@@ -22,10 +22,12 @@ class Server(object):
             SUPPORTED_METHODS = (method,)
 
             def _handle(handler, *args, **kwargs):
-                r = func(handler, *args, **kwargs)
-                # TODO func might do its own writing
-                handler.write(unicode(r))
-                handler.finish()
+                ret = func(handler, *args, **kwargs)
+                if not handler._finished:
+                    if not isinstance(ret, (str, unicode, dict)):
+                        ret = unicode(ret)
+                    handler.write(unicode(ret))
+                    handler.finish()
 
             if method == 'GET':
                 get = _handle
