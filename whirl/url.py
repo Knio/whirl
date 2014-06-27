@@ -1,6 +1,12 @@
 import re
 from collections import defaultdict
 
+try:
+  basestring = basestring
+except NameError: # py3
+  basestring = str
+  unicode = str
+
 URL_REGEX = ('^('
     '((?P<protocol>\w+)://)?'
     '(?P<host>[^\\/\\\\?]+)?'
@@ -48,7 +54,7 @@ class url(object):
 
     def update(self, **args):
         # TODO check args are only proto, host, path, etc
-        for k, v in args.iteritems():
+        for k, v in args.items():
             setattr(self, k, v)
         return self
 
@@ -119,8 +125,8 @@ class url(object):
             ret.append('?%s' % self.args)
         elif isinstance(self.args, dict):
             a = []
-            for k, v in self.args.iteritems():
-                if isinstance(v, (basestring, int, long, float)):
+            for k, v in sorted(self.args.items()):
+                if isinstance(v, (basestring, int, float)):
                     a.append('%s=%s' % (unicode(k), unicode(v)))
                 if isinstance(v, (list, tuple)):
                     for j in v:
@@ -137,21 +143,3 @@ class url(object):
 
     __unicode__ = __str__
 
-
-if __name__ == '__main__':
-    print url()
-    print url('/moo')
-    print url('http://moo')
-    print url('http:///moo')
-    print url('http://moo.com')
-    print url('http://moo.com/')
-    print url('http://moo.com/foo')
-    print url('http://moo.com/foo/bar/')
-    print url('http://moo.com/foo/bar?')
-    print url('http://moo.com/foo/bar/?var=1')
-    print url('http://moo.com/foo/bar/?var=1&baz=dog')
-    print url('http://moo.com/foo/bar/?var=1&baz=dog&var=3')
-    print url('http://moo.com/foo/bar/?var=1&baz=dog&var=3#here')
-    assert url('?moo=1')['moo'] == '1'
-    print url(url('?moo=1'))
-    print url(url('?moo=1')).update_args(bar=2)

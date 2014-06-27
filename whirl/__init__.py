@@ -1,4 +1,5 @@
-__version__ = version = '0.6.1'
+from ._version import __version__
+version = __version__
 
 from .cookie    import cookie
 from .url       import url

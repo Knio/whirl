@@ -1,4 +1,4 @@
-import parsers
+from . import parsers
 
 class httperror(Exception): pass
 

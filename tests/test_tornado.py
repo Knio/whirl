@@ -1,8 +1,11 @@
 import logging
 
-from whirl.tornado_server import *
+try:
+    from whirl.tornado_server import *
+except ImportError:
+    server = None
 
-if __name__ == '__main__':
+if __name__ == '__main__' and server:
     logging.basicConfig(level=logging.DEBUG)
 
     # Example usage
