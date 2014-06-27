@@ -4,6 +4,12 @@ import random
 import tornado
 import tornado.web
 
+try:
+  basestring = basestring
+except NameError: # py3
+  basestring = str
+  unicode = str
+
 log = logging.getLogger('whirl.tornado')
 log.addHandler(logging.NullHandler())
 
