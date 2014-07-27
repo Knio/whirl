@@ -1,5 +1,6 @@
 import logging
 import random
+import inspect
 
 import tornado
 import tornado.web
@@ -13,7 +14,7 @@ except NameError: # py3
 log = logging.getLogger('whirl.tornado')
 log.addHandler(logging.NullHandler())
 
-__all__ = ['Server', 'get', 'post', 'add_route', 'server']
+__all__ = ['Server', 'get', 'post', 'add_route', 'server', 'tornado']
 
 
 class Server(object):
@@ -24,6 +25,10 @@ class Server(object):
         self.application = None
 
     def make_handler(self, method, func):
+        if inspect.isclass(func) and \
+                issubclass(func, tornado.web.RequestHandler):
+            return func
+
         class TornadoHandler(tornado.web.RequestHandler):
             SUPPORTED_METHODS = (method,)
 
