@@ -23,6 +23,7 @@ class Server(object):
         self.port = 8888
         self.cookie_secret = '%x' % random.getrandbits(256)
         self.application = None
+        self.ioloop = None
 
     def make_handler(self, method, func):
         if inspect.isclass(func) and \
@@ -90,7 +91,8 @@ class Server(object):
         tornado.ioloop.PeriodicCallback(lambda:None, 1000).start()
 
         try:
-            tornado.ioloop.IOLoop.instance().start()
+            self.ioloop = tornado.ioloop.IOLoop.current()
+            self.ioloop.start()
         except KeyboardInterrupt:
             log.info('Exiting')
 
