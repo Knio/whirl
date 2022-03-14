@@ -99,6 +99,7 @@ class Server(object):
 server  = Server()
 get     = server.get
 post    = server.post
+run     = server.run
 add_route = server.add_route
 
 if __name__ == '__main__':

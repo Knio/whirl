@@ -1,6 +1,6 @@
 import datetime
 
-class cookie(object):
+class cookie:
   def __init__(self, name, value, expires=None, duration=None, path='/',
                domain=None, secure=False, httponly=False):
 
