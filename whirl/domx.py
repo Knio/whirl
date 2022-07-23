@@ -32,8 +32,13 @@ class DomxServer(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHandler
   dx = dx
   container = container
 
+  template_cls = dominate.document
   routes = []
 
+  @classmethod
+  def template(cls, t):
+    cls.template_cls = t
+    return t
 
   @classmethod
   def route(cls, route, cb=None):
@@ -96,7 +101,8 @@ class DomxServer(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHandler
     parts = list(url.path.parts)
     if len(parts) > 1 and parts[1] == 'domx':
       del parts[1]
-      url = whirl.url(url, path=''.join(parts))
+      parts[0] = ''
+      url = whirl.url(url, path='/'.join(parts))
       xhr = True
 
     r = 200
@@ -106,7 +112,10 @@ class DomxServer(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHandler
       d = self.page_error(r, 'Page Not Found')
     else:
       try:
-        d = cb(url, self, *args)
+        with container() as c:
+          d = cb(url, self, *args)
+        if not d:
+          d = c
         self.domxify(d)
       except Exception as e:
         log.exception('Internal Server Error')
@@ -119,7 +128,7 @@ class DomxServer(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHandler
 
     if not xhr:
       if not isinstance(d, dominate.document):
-        doc = dominate.document(str(url))
+        doc = self.template_cls(str(url))
         doc += d
         d = doc
       d.head += tags.script(util.include(static_root / 'domx' / 'domx.js'))
@@ -142,7 +151,7 @@ class DomxServer(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHandler
 
 
   def page_error(self, code, msg='', body=None):
-    d = dominate.document(f'{code} {msg}')
+    d = self.template_cls(f'{code} {msg}')
     d += body or msg
     return d
 

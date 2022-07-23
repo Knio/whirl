@@ -1,0 +1,61 @@
+
+@import url('http://fonts.cdnfonts.com/css/monofur');
+
+:root {
+  /*--accent: red;*/
+  --code: #333;
+}
+
+body {
+    font-size: 1rem;
+}
+
+pre {
+    white-space: pre-wrap;
+}
+
+details[open] summary {
+    margin-bottom: 0;
+}
+
+input, select, textarea {
+    /*padding: 0;*/
+}
+
+
+
+/*
+.tasks {
+    margin-left: auto;
+    margin-right: auto;
+}
+*/
+
+.task {
+    /*width: 500px;*/
+    /*border: 1px solid #ddd;*/
+    /*border-radius: 4px;*/
+    /*margin: 10px;*/
+
+/*    white-space: pre-wrap;*/
+}
+
+.task summary * {
+    /*vertical-align: middle;*/
+    margin-left: 1.5rem;
+}
+
+.task summary span {
+    font-weight: normal;
+    float: right;
+}
+
+.task .body {
+   white-space: pre-wrap;
+   line-height: 1em;
+}
+
+.task:hover {
+    background-color: #eee;
+}
+
