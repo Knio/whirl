@@ -1,3 +1,4 @@
+import pathlib
 import re
 from collections import defaultdict
 
@@ -55,6 +56,8 @@ class url(object):
     a = self.parse_arguments(self.args)
     if a:
       self.args = a
+
+    self.path = pathlib.PurePosixPath(self.path)
 
   def update(self, **args):
     for k, v in args.items():
