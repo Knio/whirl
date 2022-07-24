@@ -52,6 +52,9 @@ class KnioTaskEncoder(toml.encoder.TomlEncoder):
                     arraystr += arraytabstr
             else:
                 if value is not None:
+                    # kniodo edit
+                    if section == "body":
+                        retstr += '\n' + ('#' * 40) + '\n'
                     retstr += (qsection + " = " +
                                unicode(self.dump_value(value)) + '\n')
                     # kniodo edit
@@ -68,8 +71,9 @@ class KnioTaskEncoder(toml.encoder.TomlEncoder):
 
   def dump_str(self, v):
     nl = v.count('\n')
-    if nl < 2:
+    if nl <= 2:
       return toml.encoder._dump_str(v)
+    # raw string with """ replaced
     v = v.replace('"""', r"\u0022\u0022\u0022")
     return '"""\n' + v + '"""\n'
 

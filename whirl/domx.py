@@ -170,10 +170,22 @@ class DomxServer(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHandler
         else:
           raise ValueError('no domx method specified')
         outer =  int(bool(i.attributes.get('outer')))
-        target = i['target']
+        target = i.attributes.get('target', 'this')
+        event = i.attributes.get('event', 'onclick')
+        before = i.attributes.get('before')
+        after = i.attributes.get('after')
+
+        before = f"(function(){{{before}}})" if before else 'null'
+        after = f"(function(){{{after}}})" if after else 'null'
 
         # todo onsubmit, etc for different types
-        node['onclick'] = f"return dx.replace(this, '{target}', '/domx{path}', '{method}', {outer});"
+        node[event] = (
+          f"return dx.replace("
+          f"this, '{target}', "
+          f"'/domx{path}', "
+          f"'{method}', {outer}, {before}, {after}"
+          ");"
+        )
         node.children.remove(i)
       self.domxify(i)
 
