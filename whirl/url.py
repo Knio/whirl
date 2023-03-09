@@ -1,5 +1,8 @@
+import urllib.parse
+import collections
+
+import pathlib
 import re
-from collections import defaultdict
 
 URL_REGEX = (r'^('
   r'((?P<protocol>\w+)://)?'
@@ -56,6 +59,8 @@ class url(object):
     if a:
       self.args = a
 
+    self.path = pathlib.PurePosixPath(self.path)
+
   def update(self, **args):
     for k, v in args.items():
       setattr(self, k, v)
@@ -76,9 +81,10 @@ class url(object):
     if not argstring:
       return None
 
-    args = defaultdict(list)
+    args = collections.defaultdict(list)
     for j in argstring.split('&'):
       k, x = j.split('=', 1)
+      x = urllib.parse.unquote_plus(x)
       args[k].append(x)
 
     argsf = {}
@@ -129,10 +135,14 @@ class url(object):
       a = []
       for k, v in sorted(self.args.items()):
         if isinstance(v, (str, int, float)):
-          a.append('%s=%s' % (str(k), str(v)))
-        if isinstance(v, (list, tuple)):
+          v = urllib.parse.quote_plus(str(v))
+          a.append('%s=%s' % (str(k), v))
+        elif isinstance(v, (list, tuple)):
           for j in v:
-            a.append('%s=%s' % (str(k), str(j)))
+            j = urllib.parse.quote_plus(str(j))
+            a.append('%s=%s' % (str(k), j))
+        else:
+          raise ValueError('don\'t know how to encode %r (type %s)', v, type(v))
       if a:
         ret.append('?' + '&'.join(a))
     else:
