@@ -24,11 +24,13 @@ class container(dominate.dom_tag.dom_tag):
     self._render_children(sb, *a, **kw)
     return sb
 
+
 class dx(tags.dom_tag): pass
 
 
-
-class DomxServer(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHandler):
+class DomxServer(
+    socketserver.ThreadingMixIn,
+    http.server.BaseHTTPRequestHandler):
   dx = dx
   container = container
 
