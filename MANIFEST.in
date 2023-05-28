@@ -1,6 +1,0 @@
-include README.md
-
-recursive-include whirl/domx *
-
-global-exclude __pycache__
-global-exclude *.pyc
