@@ -11,8 +11,9 @@ import dominate
 import toml
 from dominate import tags, util
 
-import whirl
 
+import whirl
+# from whirl import domx_server
 
 log = logging.getLogger(__name__)
 static_root = pathlib.Path(__file__).parent
@@ -25,9 +26,11 @@ class container(dominate.dom_tag.dom_tag):
     return sb
 
 
-class dx(tags.dom_tag): pass
+class dx(tags.dom_tag):
+  pass
 
 
+# this is exported as whirl.domx
 class DomxServer(
     socketserver.ThreadingMixIn,
     http.server.BaseHTTPRequestHandler):
@@ -54,8 +57,13 @@ class DomxServer(
 
 
   @classmethod
-  def run(cls, app, addr=('', 8888)):
-    httpd = socketserver.TCPServer(addr, cls, bind_and_activate=False)
+  def run(cls, addr=('', 8888)):
+    class SS(socketserver.TCPServer):
+      def handle_timeout(self):
+        super().handle_timeout()
+        raise TimeoutError
+
+    httpd = SS(addr, cls, bind_and_activate=False)
     httpd.allow_reuse_address = True
     httpd.daemon_threads = True
     httpd.timeout = 0.1
@@ -64,12 +72,17 @@ class DomxServer(
     log.info('Serving at {}'.format(addr))
     try:
       while 1:
-         httpd.handle_request()
-      # httpd.serve_forever() # poll_timeout doesnt work
-    except KeyboardInterrupt:
-      log.info('Stopping server')
+        try:
+          # httpd.serve_forever() # poll_timeout doesnt work
+          httpd.handle_request()
+        except TimeoutError as e:
+          pass
+        except KeyboardInterrupt as e:
+          log.info(f'Stopping server: {e!r}')
+          break
     finally:
       httpd.server_close()
+
 
 
   @classmethod
