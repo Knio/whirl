@@ -139,7 +139,6 @@ class DomxServer(
           tags.div(
             tags.h1(type(e).__name__ + ': ' + str(e)),
             tags.pre(traceback.format_exc())))
-        # raise
 
     if not xhr:
       if not isinstance(d, dominate.document):
@@ -153,8 +152,6 @@ class DomxServer(
     self.send_header('Content-Type', 'text/html; charset=utf-8')
     self.end_headers()
     self.wfile.write(d.render().encode('utf-8'))
-    if r == 500:
-      raise KeyboardInterrupt
 
   def match(self, path):
     for q, cb in self.routes:
