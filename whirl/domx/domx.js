@@ -1,15 +1,15 @@
 (function(){
 
   const dx = {
-    replace: function(elem, target, uri, method, outer, before, after) {
-      const click_target = window.event.target;
+    replace: function(event, elem, target, uri, method, outer, before, after) {
+      const click_target = event.target;
+      console.log(event);
       console.log(click_target);
-      console.log(window.event);
       if (click_target.nodeName === 'A') {
         return true;
       }
-      window.event.preventDefault();
-      window.event.stopPropagation();
+      event.preventDefault();
+      event.stopPropagation();
 
       let target_node = null;
       if (target === 'this') {
@@ -36,20 +36,16 @@
 
       function reshandler(response) {
         console.log(response);
-        if (!response.ok) {
-          return
-        }
+        // if (!response.ok) {
+        //   return
+        // }
         response.text().then(data => {
           if (outer) {
             target_node.outerHTML = data;
-            // console.log(sibling.nextElementSibling);
           } else {
             target_node.innerHTML = data;
           }
-          console.log('after1')
           window.requestAnimationFrame(function(){
-            // console.log(sibling.nextElementSibling);
-            // console.log(sibling.nextElementSibling.parentNode);
             console.log('after2');
             console.log(after);
             if (after) {
@@ -63,12 +59,12 @@
 
       if (method === 'post') {
         options.method = 'POST';
-        if (form != null) {
+        if (form !== null) {
           options.body = new FormData(form);
         }
       }
       else if (method === 'get') {
-        if (form != null) {
+        if (form !== null) {
           const fd = new FormData(form);
           const fs = new URLSearchParams(fd).toString();
           uri += '?' + fs;

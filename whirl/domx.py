@@ -18,8 +18,7 @@ try:
 except ImportError:
   ultratb = None
 
-import whirl
-# from whirl import domx_server
+from .url import url
 
 log = logging.getLogger(__name__)
 static_root = pathlib.Path(__file__).parent
@@ -123,40 +122,40 @@ class DomxServer(
 
   def do(self, method):
     host = self.headers.get('Host', '')
-    url = whirl.url(self.path)
+    u = url(self.path)
 
     # TODO get rid of this convention and clean up request type handling
     xhr = False
-    parts = list(url.path.parts)
+    parts = list(u.path.parts)
     if len(parts) > 1 and parts[1] == 'domx':
       del parts[1]
       parts[0] = ''
-      url = whirl.url(url, path='/'.join(parts))
+      u = url(u, path='/'.join(parts))
       xhr = True
 
     r = 200
     content_type = 'text/html'
 
     try:
-      route, match = self.match(str(url.path))
+      route, match = self.match(str(u.path))
       if not route:
         raise http.HTTPStatus(404)
 
 
       if route.type == 'json':
-        d = json.dumps(route.cb(url, self, *match.groups()), sort_keys=True, indent='  ')
+        d = json.dumps(route.cb(u, self, *match.groups()), sort_keys=True, indent='  ')
         content_type = 'application/json'
 
       else:
         with container() as c:
-          d = route.cb(url, self, *match.groups())
+          d = route.cb(u, self, *match.groups())
         if not d:
           d = c
         self.domxify(d)
 
         if not xhr: # wrap d in the page template
           if not isinstance(d, dominate.document):
-            doc = self.template_cls(str(url))
+            doc = self.template_cls(str(u))
             doc += d
             d = doc
           d.head += tags.script(util.include(static_root / 'domx' / 'domx.js'))
@@ -165,11 +164,13 @@ class DomxServer(
     except Exception as e:
       r = 500
       with tags.div() as tb:
-          if ultratb:
+          tags.h1(type(e).__name__ + ': ' + str(e)),
+          if ultratb and False:
+            # TODO this is not useful
             vb = ultratb.VerboseTB()
-            dominate.util.text(vb.structured_traceback())
+            lines = vb.structured_traceback(type(e), e)
+            tags.pre('\n\n'.join(lines))
           else:
-            tags.h1(type(e).__name__ + ': ' + str(e)),
             tags.pre(traceback.format_exc())
 
       d = self.page_error(r, tb)
@@ -220,7 +221,7 @@ class DomxServer(
 
         # todo onsubmit, etc for different types
         node[event] = (
-          f"return dx.replace("
+          f"return dx.replace(event, "
           f"this, '{target}', "
           f"'/domx{path}', "
           f"'{method}', {outer}, {before}, {after}"
