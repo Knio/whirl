@@ -23,7 +23,7 @@
       // if this is in a form, and method is post, capture the form data
       let cur = elem;
       let form = null;
-      while (cur != document.body) {
+      while ((cur !== null) && (cur != document.body)) {
         if (cur.nodeName === 'FORM') {
           form = cur;
           break;

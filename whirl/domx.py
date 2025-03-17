@@ -11,6 +11,7 @@ import typing
 
 import dominate
 from dominate import tags, util
+import dominate.dom_tag
 
 try:
   import rich.traceback
@@ -40,6 +41,7 @@ class HTTPError(RuntimeError):
     return cls(http.HTTPStatus(x))
 
 
+
 # this is exported as whirl.domx
 class DomxServer(
     socketserver.ThreadingMixIn,
@@ -47,6 +49,12 @@ class DomxServer(
   dx = dx
   container = container
   httperror = HTTPError.fromcode
+
+  class RawResponse(typing.NamedTuple):
+    code: int = 200
+    content_type: str = 'text/plain'
+    data: bytes = b''
+    headers: dict = {}
 
   template_cls = dominate.document
   routes = []
@@ -56,10 +64,12 @@ class DomxServer(
     cb: typing.Callable
     type: str
 
+
   @classmethod
   def template(cls, t):
     cls.template_cls = t
     return t
+
 
   @classmethod
   def route(cls, route, *args, type=None, **kw):
@@ -102,7 +112,6 @@ class DomxServer(
       httpd.server_close()
 
 
-
   @classmethod
   def main(cls, ip='', port=8888):
     logging.basicConfig(
@@ -139,8 +148,11 @@ class DomxServer(
       u = url(u, path='/'.join(parts))
       xhr = True
 
+    do_wrap = not xhr
     r = 200
-    content_type = 'text/html'
+
+    headers = {}
+    content_type = 'text/plain'
 
     try:
       route, match = self.match(str(u.path))
@@ -148,32 +160,35 @@ class DomxServer(
         raise HTTPError.fromcode(404)
 
       if route.type == 'json':
-        d = json.dumps(route.cb(u, self, *match.groups()), sort_keys=True, indent='  ')
+        res = route.cb(u, self, *match.groups())
+        res = json.dumps(res, sort_keys=True, indent='  ')
         content_type = 'application/json'
 
       else:
         with container() as c:
-          d = route.cb(u, self, *match.groups())
-        if not d:
-          d = c
-        self.domxify(d)
+          res = route.cb(u, self, *match.groups())
+        if not res:
+          res = c
 
-        if not xhr: # wrap d in the page template
-          if not isinstance(d, dominate.document):
-            doc = self.template_cls(str(u))
-            doc += d
-            d = doc
-          d.head += tags.script(util.include(static_root / 'domx' / 'domx.js'))
-          d.head += tags.style( util.include(static_root / 'domx' / 'domx.css'))
+        if isinstance(res, tags.dom_tag):
+          content_type = 'text/html'
+          self.domxify(res)
+
+          if do_wrap: # wrap res in the page template
+            if not isinstance(res, dominate.document):
+              doc = self.template_cls(str(u))
+              doc += res
+              res = doc
+            res.head += tags.script(util.include(static_root / 'domx' / 'domx.js'))
+            res.head += tags.style( util.include(static_root / 'domx' / 'domx.css'))
 
     except Exception as e:
       r = 500
       if isinstance(e, HTTPError):
-        e = e.args[0]
+        r = e = e.args[0]
         phrase = e.phrase
         description = e.description
       else:
-        r = 500
         phrase = type(e).__name__ + ': ' + str(e)
         description = ''
 
@@ -187,68 +202,46 @@ class DomxServer(
               file=out,
               record=True,
               width=200,
+              force_terminal=True,
             )
             con.print_exception(
                 show_locals=True,
                 width=200,
             )
-            util.raw(con.export_svg(code_format='''
-              <svg class="rich-terminal" viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg">
-                  <style>
-                    @font-face {{
-                        font-family: "Fira Code";
-                        src: local("FiraCode-Regular"),
-                                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff2/FiraCode-Regular.woff2") format("woff2"),
-                                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff/FiraCode-Regular.woff") format("woff");
-                        font-style: normal;
-                        font-weight: 400;
-                    }}
-                    @font-face {{
-                        font-family: "Fira Code";
-                        src: local("FiraCode-Bold"),
-                                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff2/FiraCode-Bold.woff2") format("woff2"),
-                                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff/FiraCode-Bold.woff") format("woff");
-                        font-style: bold;
-                        font-weight: 700;
-                    }}
-                    .{unique_id}-matrix {{
-                        font-family: Fira Code, monospace;
-                        font-size: {char_height}px;
-                        line-height: {line_height}px;
-                        font-variant-east-asian: full-width;
-                    }}
-                    .{unique_id}-title {{
-                        font-size: 18px;
-                        font-weight: bold;
-                        font-family: arial;
-                    }}
-                    {styles}
-                  </style>
-
-                  <defs>
-                    <clipPath id="{unique_id}-clip-terminal">
-                      <rect x="0" y="0" width="{terminal_width}" height="{terminal_height}" />
-                    </clipPath>
-                    {lines}
-                  </defs>
-
-                  <g transform="translate({terminal_x}, {terminal_y})" clip-path="url(#{unique_id}-clip-terminal)">
-                  {backgrounds}
-                    <g class="{unique_id}-matrix">
-                      {matrix}
-                    </g>
-                  </g>
-              </svg>'''))
+            log.debug('\n' + out.getvalue())
+            util.raw(con.export_svg(code_format=RICH_SVG))
           else:
             tags.pre(traceback.format_exc())
 
-      d = self.page_error(r, tb)
+      content_type = 'text/html'
+      res = self.page_error(r, tb)
 
+    # raise ValueError((tags.dom_tag, type(tags.dom_tag)))
+    tdt = tags.dom_tag
+    if isinstance(res, tdt):
+      content_type += '; charset=utf-8'
+      data = res.render().encode('utf-8')
+    elif isinstance(res, str):
+      content_type = 'text/plain; charset=utf-8'
+      data = res.encode('utf-8')
+    elif isinstance(res, self.RawResponse):
+      r = res.code
+      content_type = res.content_type
+      data = res.data
+      headers.update(res.headers)
+    else:
+      raise TypeError(type(res))
+
+    if content_type:
+      headers['Content-Type'] = content_type
 
     self.send_response(r)
-    self.send_header('Content-Type', f'{content_type}; charset=utf-8')
+    for k, v in headers.items():
+      self.send_header(k, v)
+
     self.end_headers()
-    self.wfile.write(str(d).encode('utf-8'))
+    if data:
+      self.wfile.write(data)
 
   def match(self, path):
     for route in self.routes:
@@ -298,3 +291,53 @@ class DomxServer(
         )
         node.children.remove(i)
       self.domxify(i)
+
+
+RICH_SVG = '''
+<svg class="rich-terminal" viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg">
+    <style>
+      @font-face {{
+          font-family: "Fira Code";
+          src: local("FiraCode-Regular"),
+                  url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff2/FiraCode-Regular.woff2") format("woff2"),
+                  url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff/FiraCode-Regular.woff") format("woff");
+          font-style: normal;
+          font-weight: 400;
+      }}
+      @font-face {{
+          font-family: "Fira Code";
+          src: local("FiraCode-Bold"),
+                  url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff2/FiraCode-Bold.woff2") format("woff2"),
+                  url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff/FiraCode-Bold.woff") format("woff");
+          font-style: bold;
+          font-weight: 700;
+      }}
+      .{unique_id}-matrix {{
+          font-family: Fira Code, monospace;
+          font-size: {char_height}px;
+          line-height: {line_height}px;
+          font-variant-east-asian: full-width;
+      }}
+      .{unique_id}-title {{
+          font-size: 18px;
+          font-weight: bold;
+          font-family: arial;
+      }}
+      {styles}
+    </style>
+
+    <defs>
+      <clipPath id="{unique_id}-clip-terminal">
+        <rect x="0" y="0" width="{terminal_width}" height="{terminal_height}" />
+      </clipPath>
+      {lines}
+    </defs>
+
+    <g transform="translate({terminal_x}, {terminal_y})" clip-path="url(#{unique_id}-clip-terminal)">
+    {backgrounds}
+      <g class="{unique_id}-matrix">
+        {matrix}
+      </g>
+    </g>
+</svg>
+'''

@@ -1,5 +1,6 @@
 import re
-from urllib import unquote_plus
+import typing
+import urllib.parse
 
 
 def parse_query(string):
@@ -8,12 +9,12 @@ def parse_query(string):
   for pair in filter(None, string):
     is_array = False
     try:
-      key, value = map(unquote_plus, pair.split('=', 1))
+      key, value = map(urllib.parse.unquote_plus, pair.split('=', 1))
       if key.endswith('[]'):
         key   = key[:-2]
         is_array = True
     except ValueError:
-      key, value = unquote_plus(pair), ''
+      key, value = urllib.parse.unquote_plus(pair), ''
     if is_array:
       if key in d:
         d[key].append(value)
@@ -24,6 +25,12 @@ def parse_query(string):
   return d
 
 
+def parse_strval(string):
+  if string.startswith('"') and string.endswith('"'):
+    return string[1:-1]
+  return string
+
+
 def parse_semi(string):
   d = {}
   for pair in filter(None, string.split('; ')):
@@ -31,91 +38,57 @@ def parse_semi(string):
       key, value = pair.split('=',1)
     except ValueError:
       key, value = '', pair
-    d[key] = value
+    d[parse_strval(key)] = parse_strval(value)
   return d
-
-
-def parse_user_agent(user_agent):
-  USER_AGENT_REGEX = (
-    ('ie',        re.compile(r'MSIE (?P<version>(?P<major>\d+)(?:\.(?P<minor>\d+))?)'), 'Windows CE'),
-    ('firefox',   re.compile(r'Firefox/(?P<version>(?P<major>\d+)\.(?P<minor>\d+)(?:\.(?P<release>\d+)(?:\.(?P<build>\d+))?)?((a|b)(?P<beta>\d+))?)'), 'Fennec'),
-    ('chrome',    re.compile(r'Chrome/(?P<version>(?P<major>\d+)\.(?P<minor>\d+)(?:\.(?P<release>\d+)(?:\.(?P<build>\d+))?)?)'), None),
-    ('safari',    re.compile(r'Version/(?P<version>(?P<major>\d+)\.(?P<minor>\d+)(?:\.(?P<release>\d+))?)'), 'iPhone'),
-    ('opera',     re.compile(r'Opera(?:/| )(?P<version>(?P<major>\d+)\.(?P<minor>\d+))'), 'Mini'),
-    # googlebot Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)
-    ('googlebot', re.compile(r'Googlebot/(?P<version>(?P<major>\d+)\.(?P<minor>\d+))'), None),
-  )
-
-  class browser(object): pass
-  b = browser()
-
-  for browser, regex, mobile in USER_AGENT_REGEX:
-    match = re.search(regex, user_agent)
-    if match:
-      b.name   = browser
-      b.mobile = mobile and mobile in user_agent
-
-      for name, value in match.groupdict().iteritems():
-        if value:
-          setattr(b, name, value)
-
-      setattr(b, browser, float(b.major + '.' + b.minor))
-    else:
-      setattr(b, browser, None)
-
-  return b
-
 
 
 def parse_multipart(content_type, data):
   '''
-  This method *MUST* be run with unbuffered input!
-  python -u
+  boggles the fucking mind that this is not in the stdlib
   '''
   multipart = {}
+  # TODO use memoryview
 
   content_type = parse_semi(content_type)
-  boundary     = '--' + content_type['boundary']
+  boundary     = ('--' + content_type['boundary']).encode('utf-8')
 
   string = data
   if not string.startswith(boundary):
     raise ValueError('form-data boundary does not match')
 
-  class part(str): pass
+  class part(typing.NamedTuple):
+    headers: dict
+    disposition: dict
+    name: str
+    data: bytes
 
   def make_part(string):
-    headers     = {}
-    disposition = {}
-    data        = ''
-
+    headers = {}
     while True:
-      n = string.find('\r\n')
+      n = string.find(b'\r\n')
       if n == -1:
         raise ValueError('Unexpected EOF while parsing form parts.')
       if n == 0:
         string = string[2:-2]
         break
-
-      header, value = string[:n].split(': ', 1)
-      headers[header] = value
+      header, value = string[:n].split(b': ', 1)
+      headers[header.decode('utf-8')] = value.decode('utf-8')
       string = string[n+2:]
 
-    data        = part(string)
+    data        = string
     disposition = parse_semi(headers['Content-Disposition'])
     name        = disposition.pop('name')
-    for n, value in disposition.items():
-        setattr(data, n, value)
-    return name, data
+    return part(headers, disposition, name, data)
 
-  string = data[len(boundary + '\r\n'):]
+  string = data[len(boundary + b'\r\n'):]
 
   while True:
     n = string.find(boundary)
     if n == -1:
-      raise ValueError('unexpected EOF while parsing form-data (ATTN: make sure this script is running with unbuffered stdin, as the default (text-mode on windows) will fail when reading certain non-text characters) (#python -u for unbuffered stdin/out)')
-    name, value = make_part(string[:n])
-    multipart[name] = value
-    if string[n:-2] == boundary + '--':
+      raise ValueError('unexpected EOF while parsing form-data')
+    p = make_part(string[:n])
+    multipart[p.name] = p
+    if string[n:-2] == boundary + b'--':
         break
     string = string[len(boundary) + n + 2:]
 

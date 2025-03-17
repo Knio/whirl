@@ -59,7 +59,8 @@ class url(object):
     if a:
       self.args = a
 
-    self.path = pathlib.PurePosixPath(self.path)
+    decoded = urllib.parse.unquote_plus(self.path)
+    self.path = pathlib.PurePosixPath(decoded)
 
   def update(self, **args):
     for k, v in args.items():
