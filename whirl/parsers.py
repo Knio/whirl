@@ -1,3 +1,4 @@
+from collections import defaultdict
 import re
 import typing
 import urllib.parse
@@ -46,7 +47,7 @@ def parse_multipart(content_type, data):
   '''
   boggles the fucking mind that this is not in the stdlib
   '''
-  multipart = {}
+  multipart = defaultdict(list)
   # TODO use memoryview
 
   content_type = parse_semi(content_type)
@@ -87,10 +88,9 @@ def parse_multipart(content_type, data):
     if n == -1:
       raise ValueError('unexpected EOF while parsing form-data')
     p = make_part(string[:n])
-    multipart[p.name] = p
+    multipart[p.name].append(p)
     if string[n:-2] == boundary + b'--':
         break
     string = string[len(boundary) + n + 2:]
 
   return multipart
-
